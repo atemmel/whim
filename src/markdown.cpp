@@ -1,7 +1,50 @@
 #include "markdown.hpp"
 
+#include <iostream>
+
 thread_local std::string_view md::view;
 thread_local md::ParseState md::state; 
+
+auto md::Node::addChild(Child& child) -> void {
+	children.push_back(std::move(child));
+}
+
+auto md::Document::accept(Visitor& visitor) const -> void {
+	visitor.visit(*this);
+}
+
+auto md::Paragraph::accept(Visitor& visitor) const -> void {
+	visitor.visit(*this);
+}
+
+auto md::Header::accept(Visitor& visitor) const -> void {
+	visitor.visit(*this);
+}
+
+auto md::Printer::visit(const Document& document) -> void {
+	std::cerr << "document:\n";
+	depth++;
+	for(const auto& child : document.children) {
+		pad();
+		child->accept(*this);
+	}
+	depth--;
+}
+
+auto md::Printer::visit(const Paragraph& paragraph) -> void {
+	std::cerr << "Paragraph: '" << paragraph.contents << "'\n";
+}
+
+auto md::Printer::visit(const Header& header) -> void {
+	std::cerr << "Header: '" << header.contents 
+		<< "', Level: " << header.level << '\n';
+}
+
+auto md::Printer::pad() const -> void {
+	for(uint32_t i = 0; i < depth; i++) {
+		std::cerr << "    ";
+	}
+}
 
 auto md::parse(const std::string_view str) -> std::unique_ptr<Document> {
 	state = {
@@ -13,6 +56,18 @@ auto md::parse(const std::string_view str) -> std::unique_ptr<Document> {
 	std::unique_ptr<Document> result = std::make_unique<Document>();
 
 	result->meta = parseMetadata();
+
+	skipBlank();
+	while(!eof()) {
+		if(auto header = parseHeader(); header) {
+			result->addChild(header);
+		} else if(auto paragraph = parseParagraph(); paragraph) {
+			result->addChild(paragraph);
+		} else {
+			return result;
+		}
+		skipBlank();
+	}
 
 	return result;
 }
@@ -113,6 +168,89 @@ auto md::parseMetadata() -> std::unordered_map<std::string, std::string> {
 	return map;
 }
 
+auto md::parseParagraph() -> Child {
+	auto checkpoint = state;
+	auto paragraphBegin = state.index;
+
+	while(!eof() && isSpecialChar(peek())) {
+		next();
+	}
+
+	auto paragraphEnd = state.index;
+
+	bool prevCharWasNewline = false;
+
+	while(!eof() && !isSpecialChar(peek())) {
+		prevCharWasNewline = peek() == '\n';
+		paragraphEnd = state.index;
+		next();
+		if(prevCharWasNewline && peek() == '\n') {
+			paragraphEnd = state.index - 1;
+			next();
+			break;
+		}
+	}
+
+	if(paragraphBegin == paragraphEnd) {
+		state = checkpoint;
+		return nullptr;
+	}
+
+	auto paragraph = std::make_unique<Paragraph>();
+	paragraph->contents.assign(view.begin() + paragraphBegin,
+			view.begin() + paragraphEnd);
+	return paragraph;
+}
+
+auto md::parseHeader() -> Child {
+	auto checkpoint = state;
+	if(peek() != '#') {
+		return nullptr;
+	}
+
+	next();
+
+	int level = 1;
+	while(!eof() && peek() == '#') {
+		state.column++;
+		state.index++;
+		level++;
+		if(level >= 7) {
+			state = checkpoint;
+			return nullptr;
+		}
+	}
+
+	if(peek() != ' ') {
+		state = checkpoint;
+		return nullptr;
+	}
+
+	while(peek() == ' ') {
+		state.column++;
+		state.index++;
+	}
+
+	if(peek() == '\n') {
+		state = checkpoint;
+		return nullptr;
+	}
+
+	auto headerBegin = state.index;
+	while(peek() != '\n') {
+		state.column++;
+		state.index++;
+	}
+
+	auto headerEnd = state.index;
+
+	auto header = std::make_unique<Header>();
+	header->contents.assign(view.begin() + headerBegin,
+			view.begin() + headerEnd);
+	header->level = level;
+	return header;
+}
+
 auto md::peek() -> char {
 	return view[state.index];
 }
@@ -134,4 +272,13 @@ auto md::skipBlank() -> void {
 	while(!eof() && !std::isgraph(peek())) {
 		next();
 	}
+}
+
+auto md::isSpecialChar(char prospect) -> bool {
+	switch(prospect) {
+		case '#':
+		case '*':
+			return true;
+	}
+	return false;
 }

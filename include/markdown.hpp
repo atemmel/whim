@@ -6,16 +6,47 @@
 #include <vector>
 
 struct md {
+	struct Visitor;
 	struct Node;
 	using Child = std::unique_ptr<Node>;
 
 	struct Node {
 		virtual ~Node() = default;
+		virtual auto accept(Visitor& visitor) const -> void = 0;
+		auto addChild(Child& child) -> void;
 		std::vector<Child> children;
 	};
 
 	struct Document : public Node {
+		auto accept(Visitor& visitor) const -> void;
 		std::unordered_map<std::string, std::string> meta;
+	};
+
+	struct Paragraph : public Node {
+		auto accept(Visitor& visitor) const -> void;
+		std::string contents;
+	};
+
+	struct Header : public Node {
+		auto accept(Visitor& visitor) const -> void;
+		std::string contents;
+		int level;
+	};
+
+	struct Visitor {
+		virtual ~Visitor() = default;
+		virtual auto visit(const Document& document) -> void = 0;
+		virtual auto visit(const Paragraph& paragraph) -> void = 0;
+		virtual auto visit(const Header& header) -> void = 0;
+	};
+
+	struct Printer : Visitor {
+		auto visit(const Document& document) -> void;
+		auto visit(const Paragraph& paragraph) -> void;
+		auto visit(const Header& header) -> void;
+	private:
+		auto pad() const -> void;
+		uint32_t depth = 0;
 	};
 
 	static auto parse(std::string_view str) -> std::unique_ptr<Document>;
@@ -23,11 +54,15 @@ struct md {
 private:
 
 	static auto parseMetadata() -> std::unordered_map<std::string, std::string>;
+	static auto parseParagraph() -> Child;
+	static auto parseHeader() -> Child;
 
 	static auto peek() -> char;
 	static auto next() -> void;
 	static auto eof() -> bool;
 	static auto skipBlank() -> void;
+
+	static auto isSpecialChar(char prospect) -> bool;
 
 	static thread_local std::string_view view;
 
