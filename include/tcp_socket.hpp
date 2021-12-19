@@ -2,7 +2,7 @@
 #include "result.hpp"
 
 struct TcpSocket {
-	static auto create() -> Result<TcpSocket>;
+	[[nodiscard]] static auto create() -> Result<TcpSocket>;
 	
 	auto close() const -> void;
 	auto listen(uint16_t port) const -> Result<void>;

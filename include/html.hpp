@@ -16,7 +16,7 @@ struct html {
 		std::vector<InsertionPoint> insertionPoints;
 		std::string contents;
 
-		auto emit(const md::Document& document) -> std::string;
+		[[nodiscard]] auto emit(const md::Document& document) -> std::string;
 
 		auto visit(const md::Document& document) -> void;
 		auto visit(const md::Paragraph& paragraph) -> void;

@@ -49,20 +49,20 @@ struct md {
 		uint32_t depth = 0;
 	};
 
-	static auto parse(std::string_view str) -> std::unique_ptr<Document>;
+	[[nodiscard]] static auto parse(std::string_view str) -> std::unique_ptr<Document>;
 
 private:
 
-	static auto parseMetadata() -> std::unordered_map<std::string, std::string>;
-	static auto parseParagraph() -> Child;
-	static auto parseHeader() -> Child;
+	[[nodiscard]] static auto parseMetadata() -> std::unordered_map<std::string, std::string>;
+	[[nodiscard]] static auto parseParagraph() -> Child;
+	[[nodiscard]] static auto parseHeader() -> Child;
 
-	static auto peek() -> char;
+	[[nodiscard]] static auto peek() -> char;
 	static auto next() -> void;
-	static auto eof() -> bool;
+	[[nodiscard]] static auto eof() -> bool;
 	static auto skipBlank() -> void;
 
-	static auto isSpecialChar(char prospect) -> bool;
+	[[nodiscard]] static auto isSpecialChar(char prospect) -> bool;
 
 	static thread_local std::string_view view;
 
