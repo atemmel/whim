@@ -7,20 +7,23 @@
 #include <errno.h>
 #include <string.h>
 
-auto TcpSocket::create() -> TcpSocket {
-	TcpSocket tcpSocket;
-	tcpSocket.fd = socket(AF_INET, SOCK_STREAM, 0);
-	/*	Error handling
-	if(tcpSocket.fd < 0) {
-
+auto TcpSocket::create() -> Result<TcpSocket> {
+	//TcpSocket tcpSocket;
+	Result<TcpSocket> tcpSocket;
+	tcpSocket.value.fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(tcpSocket.value.fd < 0) {
+		tcpSocket.set("Could not create socket");
 	}
-	*/
 
 	return tcpSocket;
 }
 
-auto TcpSocket::listen(uint16_t port) -> void {
-	
+auto TcpSocket::close() const -> void {
+	::close(fd);
+}
+
+auto TcpSocket::listen(uint16_t port) const -> Result<void> {
+	Result<void> result;
 	sockaddr_in hint;
 	hint.sin_family = AF_INET;
 	hint.sin_port = htons(port);
@@ -29,86 +32,74 @@ auto TcpSocket::listen(uint16_t port) -> void {
 	int opt = 1;
 
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-		//return "Failed to set SO_REUSEADDR option";
+		return result.set("Failed to set SO_REUSEADDR option");
 	}
 
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
-		//return "Error setting SO_REUSEPORT option";
+		return result.set("Failed to set SO_REUSEPORT option");
 	}
 
-	int result = ::bind(fd, reinterpret_cast<const sockaddr*>(&hint), sizeof hint);
-	if(result != 0) {
-		//return "Error binding port";
+	int code = ::bind(fd, reinterpret_cast<const sockaddr*>(&hint), sizeof hint);
+	if(code != 0) {
+		return result.set("Error binding port");
 	}
 
-	result = ::listen(fd, 256);
+	code = ::listen(fd, 256);
 
-	if(result != 0) {
-		//return "Could not set socket into listening state";
+	if(code != 0) {
+		return result.set("Could not set socket into listening state");
 	}
 
-	//return nullptr;
+	return result;
 }
 
-auto TcpSocket::accept() -> TcpSocket {
+auto TcpSocket::accept() const -> Result<TcpSocket> {
 
-	TcpSocket client;
-	client.fd = ::accept(fd, nullptr, nullptr);
-	if(client.fd == -1) {
-		//"Failed to accept incoming connection",
+	Result<TcpSocket> client;
+	client.value.fd = ::accept(fd, nullptr, nullptr);
+	if(client.value.fd == -1) {
+		return client.set("Failed to accept incoming connection");
 	}
 
 	return client;
 }
 
-auto TcpSocket::read(size_t howManyBytes) -> std::string {
-	std::string bytes(howManyBytes, '\0');
-	auto result = ::read(fd, bytes.data(), bytes.size());
-	if(result < 0) {
-		/*
-		return {
-			{},
-			"Reading from socket failed",
-		};
-		*/
+auto TcpSocket::read(size_t howManyBytes) const -> Result<std::string> {
+	Result<std::string> result;
+	result.value.resize(howManyBytes, '\0');
+	auto code = ::read(fd, result.value.data(), result.value.size());
+	if(code < 0) {
+		return result.set("Reading from socket failed");
 	}
-	return bytes;
+	return result;
 }
 
-auto TcpSocket::readUntil(char thisByte) -> std::string {
-	std::string bytes;
-	bytes.reserve(64);
+auto TcpSocket::readUntil(char thisByte) const -> Result<std::string> {
+	Result<std::string> result;
+	result.value.reserve(64);
 
 	char byte = 0;
 	while(true) {
-		auto result = ::read(fd, &byte, 1);
-		if(result < 0) {
-			/*
-			return {
-				{},
-				"Reading from socket failed",
-			};
-			*/
+		auto code = ::read(fd, &byte, 1);
+		if(code < 0) {
+			return result.set("Reading from socket failed");
 		}
-
-		bytes.push_back(byte);
 
 		if(byte == thisByte) {
-			return bytes;
+			return result;
 		}
+
+		result.value.push_back(byte);
 	}
 }
 
-auto TcpSocket::write(std::string_view bytes) -> size_t {
-	auto result = ::write(fd, bytes.data(), bytes.size());
-	if(result < 0) {
-		/*
-		return {
-			0,
-			"Writing to socket failed",
-		};
-		*/
+auto TcpSocket::write(std::string_view bytes) const -> Result<size_t> {
+	Result<size_t> result;
+	auto code = ::write(fd, bytes.data(), bytes.size());
+	if(code < 0) {
+		return result.set("Writing to socket failed");
 	}
+	result.value = code;
 	return result;
 }
 
