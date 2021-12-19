@@ -29,15 +29,15 @@ epic content moment
 </html>
 )";
 
-	//TODO: Implement next step in pipeline
-	//auto doc = md::parse(markdown);
-	//auto htmlTemplate = html::compile(html);
+	auto doc = md::parse(markdown);
+	auto htmlTemplate = html::compile(html);
+	auto output = htmlTemplate.emit(*doc);
 
 	auto root = [&](const Http::Message& message, TcpSocket client) {
 		std::string_view header = "HTTP/1.1 200 OK\n\n";
 		std::string_view response = html;
 		client.write(header);
-		client.write(response);
+		client.write(output);
 	};
 
 	server.endpoint("/", root);
