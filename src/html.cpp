@@ -24,6 +24,9 @@ auto html::Template::visit(const md::Document& document) -> void {
 
 		prevIndex = point.last;
 	}
+
+	output += std::string_view(contents.begin() + prevIndex,
+			contents.end());
 }
 
 auto html::Template::visit(const md::Paragraph& paragraph) -> void {

@@ -7,7 +7,44 @@
 
 #include <iostream>
 
+void handleWs(TcpSocket client) {
+	auto result = client.read(1024);
+	if(result.success()) {
+		std::cerr << result.value << '\n';
+	} else {
+		std::cerr << result.reason() << '\n';
+	}
+}
+
+void ws() {
+	Result<void> toReturn;
+	auto result = TcpSocket::create();
+	
+	if(result.fail()) {
+		return;
+	}
+
+	auto socket = result.value;
+	auto voidRes = socket.listen(3501);
+	if(voidRes.fail()) {
+		return;
+	}
+
+	while(true) {
+		auto client = socket.accept();
+		if(client.fail()) {
+			std::cerr << client.reason() << '\n';
+		} else {
+			handleWs(client.value);
+		}
+	}
+}
+
 auto main(int argc, char** argv) -> int {
+
+	std::thread other(ws);
+	other.detach();
+
 	std::string markdownPath;
 
 	ArgParser argParser(argc, argv);
@@ -57,6 +94,8 @@ auto main(int argc, char** argv) -> int {
 		client.write(header);
 		markdownState.htmlOutputMutex.lock();
 		client.write(markdownState.htmlOutput);
+		std::cerr << "Sending\n";
+		std::cerr << markdownState.htmlOutput << '\n';
 		markdownState.htmlOutputMutex.unlock();
 	};
 
