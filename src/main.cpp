@@ -11,6 +11,8 @@ void handleWs(TcpSocket client) {
 	auto result = client.read(1024);
 	if(result.success()) {
 		std::cerr << result.value << '\n';
+		std::string response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade";
+		client.write(response);
 	} else {
 		std::cerr << result.reason() << '\n';
 	}
@@ -94,8 +96,6 @@ auto main(int argc, char** argv) -> int {
 		client.write(header);
 		markdownState.htmlOutputMutex.lock();
 		client.write(markdownState.htmlOutput);
-		std::cerr << "Sending\n";
-		std::cerr << markdownState.htmlOutput << '\n';
 		markdownState.htmlOutputMutex.unlock();
 	};
 

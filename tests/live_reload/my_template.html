@@ -9,7 +9,7 @@
 		$main
 		 <script type="text/javascript">
 console.log("JS is wilding\n");
-let socket = new WebSocket("127.0.0.1:3501");
+let socket = new WebSocket("ws://localhost:3501");
 
 socket.onopen = function(e) {
   alert("[open] Connection established");
