@@ -2,6 +2,7 @@
 #include <algorithm>
 
 auto html::Template::emit(const md::Document& document) -> std::string {
+	output.clear();
 	visit(document);
 	return output;
 }

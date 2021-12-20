@@ -57,6 +57,6 @@ auto FilesystemWatcher::getTimestamp() const -> Result<long> {
 
 	auto time = fs::last_write_time(watched);
 	result.value = std::chrono::duration_cast<std::chrono::milliseconds>(
-			std::chrono::file_clock::to_sys(time).time_since_epoch()).count();
+		std::chrono::file_clock::to_sys(time).time_since_epoch()).count();
 	return result;
 };
