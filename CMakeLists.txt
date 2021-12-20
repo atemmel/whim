@@ -19,6 +19,11 @@ add_executable(ssg ${SOURCES} "src/main.cpp")
 set_property(TARGET ssg PROPERTY CXX_STANDARD 20)
 set_property(TARGET TEST PROPERTY CXX_STANDARD 20)
 
+find_package(Threads REQUIRED)
+target_link_libraries(ssg Threads::Threads)
+target_link_libraries(ssg stdc++fs)
+target_link_libraries(TEST Threads::Threads)
+target_link_libraries(TEST stdc++fs)
 
 #Optional:
 #target_link_libraries(ssg LLVM)

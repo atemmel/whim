@@ -1,10 +1,22 @@
 #include "html.hpp"
 #include "http.hpp"
+#include "filesystem_watcher.hpp"
 #include "markdown.hpp"
 
 #include <iostream>
 
 auto main() -> int {
+
+	FilesystemWatcher watcher;
+	auto result = watcher.watch("../compile_commands.json", [](){
+		std::cerr << "Changed!\n";
+	}, 200);
+
+	if(result.fail()) {
+		std::cerr << result.reason() << '\n';
+		return EXIT_FAILURE;
+	}
+
 	Http::Server server;
 
 	std::string_view markdown = R"(
