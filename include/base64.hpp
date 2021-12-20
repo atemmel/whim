@@ -5,6 +5,6 @@
 
 namespace base64 {
 
-[[nodiscard]] std::string encode(std::string_view view);
+[[nodiscard]] auto encode(std::string_view view) -> std::string;
 
 };
