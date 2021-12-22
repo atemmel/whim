@@ -22,10 +22,12 @@ auto ws::decode(TcpSocket client) -> Result<Frame> {
 
 	result.value.fin = (b0 & 0x1);
 	result.value.op = static_cast<Frame::Opcode>(b0 & 0x0F);
-
-	if((b1 & 0x01) == 0) {
-		return result.set("Mask bit must be set to 1 for client messages");
+	std::cerr << "Read message of type: " << (int)result.value.op << '\n';
+	if(result.value.op == 0x8) {
+		return result;
 	}
+
+	bool hasMask = b1 & 0x01;
 
 	uint64_t payloadLength = (b1 & 0xF7) >> 1;
 	if(payloadLength == 125) {
@@ -63,12 +65,15 @@ auto ws::decode(TcpSocket client) -> Result<Frame> {
 FULL_LENGTH_AQUIRED:
 	std::cerr << "Full length is " << payloadLength << '\n';
 
-	auto readMaskingKey = client.readBytes(4);
-	if(readMaskingKey.fail()) {
-		return result.set(readMaskingKey.reason());
-	}
+	std::vector<Byte> mask;
+	if(hasMask) {
+		auto readMaskingKey = client.readBytes(4);
+		if(readMaskingKey.fail()) {
+			return result.set(readMaskingKey.reason());
+		}
 
-	auto mask = std::move(readMaskingKey.value);
+		mask = std::move(readMaskingKey.value);
+	}
 
 	auto readRemainder = client.readBytes(payloadLength);
 	if(readRemainder.fail()) {
@@ -79,8 +84,12 @@ FULL_LENGTH_AQUIRED:
 	auto& decoded = result.value.payload;
 	decoded.resize(remainder.size());
 
-	for(uint64_t i = 0; i < remainder.size(); i++) {
-		decoded[i] = static_cast<char>(remainder[i] ^ mask[i & 3]);
+	if(hasMask) {
+		for(uint64_t i = 0; i < remainder.size(); i++) {
+			decoded[i] = static_cast<char>(remainder[i] ^ mask[i & 3]);
+		}
+	} else {
+		std::copy(remainder.begin(), remainder.end(), decoded.begin());
 	}
 
 	return result;
@@ -195,5 +204,18 @@ auto ws::Server::handleClient(TcpSocket client) -> void {
 			clientsMutex.unlock();
 			break;
 		}
+
+		if(readFrame.value.op == 0x9) {
+			client.close();
+			clientsMutex.lock();
+			clients.erase(client);
+			clientsMutex.unlock();
+			break;
+		}
+
+		for(auto b : readFrame.value.payload) {
+			std::cerr << std::hex << (int)b << ' ';
+		}
+		std::cerr << '\n';
 	}
 }
