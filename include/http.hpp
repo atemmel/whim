@@ -23,6 +23,8 @@ struct Http {
 		auto setMethod(std::string_view view) -> void;
 	};
 
+	static auto parseMessage(TcpSocket client) -> Result<Message>;
+
 	class Server {
 	public:
 		using Handler = std::function<void(const Message& request, TcpSocket client)>;
@@ -30,7 +32,6 @@ struct Http {
 		auto endpoint(std::string_view path, Handler callback) -> void;
 	private:
 		auto handleClient(TcpSocket client) -> void;
-		auto parseMessage(TcpSocket client) -> Result<Message>;
 		std::unordered_map<std::string, Handler> handlers;
 	};
 };

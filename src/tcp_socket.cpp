@@ -93,6 +93,16 @@ auto TcpSocket::readUntil(char thisByte) const -> Result<std::string> {
 	}
 }
 
+auto TcpSocket::readBytes(size_t howManyBytes) const -> Result<std::vector<Byte>> {
+	Result<std::vector<Byte>> result;
+	result.value.resize(howManyBytes);
+	auto code = ::read(fd, result.value.data(), result.value.size());
+	if(code < 0) {
+		return result.set("Reading from socket failed");
+	}
+	return result;
+}
+
 auto TcpSocket::write(std::string_view bytes) const -> Result<size_t> {
 	Result<size_t> result;
 	auto code = ::write(fd, bytes.data(), bytes.size());
@@ -101,5 +111,20 @@ auto TcpSocket::write(std::string_view bytes) const -> Result<size_t> {
 	}
 	result.value = code;
 	return result;
+}
+
+
+auto TcpSocket::write(const std::vector<Byte>& bytes) const -> Result<size_t> {
+	Result<size_t> result;
+	auto code = ::write(fd, bytes.data(), bytes.size());
+	if(code < 0) {
+		return result.set("Writing to socket failed");
+	}
+	result.value = code;
+	return result;
+}
+
+auto TcpSocket::operator<(TcpSocket rhs) const -> bool {
+	return fd < rhs.fd;
 }
 

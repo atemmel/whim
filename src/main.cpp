@@ -1,51 +1,65 @@
 #include "argparser.hpp"
+#include "base64.hpp"
 #include "html.hpp"
 #include "http.hpp"
 #include "filesystem_watcher.hpp"
 #include "live_reload.hpp"
 #include "markdown.hpp"
+#include "sha1.hpp"
+#include "websocket.hpp"
 
 #include <iostream>
 
 void handleWs(TcpSocket client) {
-	auto result = client.read(1024);
-	if(result.success()) {
-		std::cerr << result.value << '\n';
-		std::string response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade";
-		client.write(response);
-	} else {
+	auto result = Http::parseMessage(client);
+	if(result.fail()) {
 		std::cerr << result.reason() << '\n';
+		return;
 	}
+
+	/*
+	for(auto& it : result.value.headers) {
+		std::cerr << it.first << ' ' << it.second << '\n';
+	}
+	*/
+
+	auto it = result.value.headers.find("Sec-WebSocket-Key");
+	if(it == result.value.headers.end()) {
+		std::cerr << "Nu-uh\n";
+		return;
+	}
+
+	const std::string magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+	std::string acceptUnhashed = it->second + magic;
+	auto hash = sha1::hash(acceptUnhashed);
+	auto hashAsView = std::string_view(reinterpret_cast<const char*>(hash.data()), hash.size());
+	auto base64Hash = base64::encode(hashAsView);
+
+	std::string response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n";
+	response += "Sec-Websocket-Accept: " + base64Hash + "\n\n";
+	client.write(response);
+
+	auto decodeFrame = ws::decode(client);
+
+	if(decodeFrame.fail()) {
+		std::cerr << decodeFrame.reason() << '\n';
+		return;
+	}
+
+	auto frame = std::move(decodeFrame.value);
+	std::cerr << (int)frame.op << '\n';
 }
 
 void ws() {
-	Result<void> toReturn;
-	auto result = TcpSocket::create();
-	
-	if(result.fail()) {
-		return;
-	}
-
-	auto socket = result.value;
-	auto voidRes = socket.listen(3501);
-	if(voidRes.fail()) {
-		return;
-	}
-
-	while(true) {
-		auto client = socket.accept();
-		if(client.fail()) {
-			std::cerr << client.reason() << '\n';
-		} else {
-			handleWs(client.value);
-		}
-	}
+	ws::Server server;
+	server.listen(3501);
 }
 
 auto main(int argc, char** argv) -> int {
 
-	std::thread other(ws);
-	other.detach();
+	//std::thread other(ws);
+	//other.detach();
 
 	std::string markdownPath;
 
@@ -66,11 +80,15 @@ auto main(int argc, char** argv) -> int {
 		return EXIT_FAILURE;
 	}
 
+	ws::Server wsServer;
+	wsServer.listen(3501);
+
 	FilesystemWatcher mdWatcher;
 	auto result = mdWatcher.watch(markdownState.path, [&](){
 		std::cerr << "Changed markdown!\n";
 		reloadMarkdown(markdownState);
 		reloadHtmlOutput(markdownState);
+		wsServer.sendToAll("reload");
 	}, 200);
 
 	if(result.fail()) {
