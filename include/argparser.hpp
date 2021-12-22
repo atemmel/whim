@@ -4,7 +4,7 @@
 
 #include <string>
 #include <string_view>
-#include <unordered_map>
+#include <map>
 #include <vector>
 
 class ArgParser {
@@ -13,10 +13,11 @@ public:
 
 	ArgParser(int argc, char** argv);
 
-	auto addBool(bool* var, std::string_view flag) -> void;
-	auto addString(std::string* var, std::string_view flag) -> void;
+	auto addBool(bool* var, std::string_view flag, std::string_view usage) -> void;
+	auto addString(std::string* var, std::string_view flag, std::string_view usage) -> void;
 
 	auto unwind() -> Result<void>;
+	auto usage() const -> void;
 
 private:
 	struct VarPtr {
@@ -28,6 +29,11 @@ private:
 		Type type;
 	};
 
-	std::unordered_map<std::string_view, VarPtr> flags;
+	struct Flag {
+		VarPtr var;
+		std::string_view usage;
+	};
+
+	std::map<std::string_view, Flag> flags;
 	Args args;
 };

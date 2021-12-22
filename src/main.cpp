@@ -10,66 +10,21 @@
 
 #include <iostream>
 
-void handleWs(TcpSocket client) {
-	auto result = Http::parseMessage(client);
-	if(result.fail()) {
-		std::cerr << result.reason() << '\n';
-		return;
-	}
-
-	/*
-	for(auto& it : result.value.headers) {
-		std::cerr << it.first << ' ' << it.second << '\n';
-	}
-	*/
-
-	auto it = result.value.headers.find("Sec-WebSocket-Key");
-	if(it == result.value.headers.end()) {
-		std::cerr << "Nu-uh\n";
-		return;
-	}
-
-	const std::string magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-
-	std::string acceptUnhashed = it->second + magic;
-	auto hash = sha1::hash(acceptUnhashed);
-	auto hashAsView = std::string_view(reinterpret_cast<const char*>(hash.data()), hash.size());
-	auto base64Hash = base64::encode(hashAsView);
-
-	std::string response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n";
-	response += "Sec-Websocket-Accept: " + base64Hash + "\n\n";
-	client.write(response);
-
-	auto decodeFrame = ws::decode(client);
-
-	if(decodeFrame.fail()) {
-		std::cerr << decodeFrame.reason() << '\n';
-		return;
-	}
-
-	auto frame = std::move(decodeFrame.value);
-	std::cerr << (int)frame.op << '\n';
-}
-
-void ws() {
-	ws::Server server;
-	server.listen(3501);
-}
-
 auto main(int argc, char** argv) -> int {
-
-	//std::thread other(ws);
-	//other.detach();
 
 	std::string markdownPath;
 
 	ArgParser argParser(argc, argv);
-	argParser.addString(&markdownPath, "serve");
+	argParser.addString(&markdownPath, "serve", "Serve a file for real-time editing");
 	auto parseResult = argParser.unwind();
 	if(parseResult.fail()) {
 		std::cerr << parseResult.reason();
 		return EXIT_FAILURE;
 	}
+
+	if(markdownPath.empty()) {
+		argParser.usage();
+	};
 
 	HtmlTemplateLiveReloadState htmlState;
 	MarkdownLiveReloadState markdownState;
@@ -85,7 +40,6 @@ auto main(int argc, char** argv) -> int {
 
 	FilesystemWatcher mdWatcher;
 	auto result = mdWatcher.watch(markdownState.path, [&](){
-		std::cerr << "Changed markdown!\n";
 		reloadMarkdown(markdownState);
 		reloadHtmlOutput(markdownState);
 		wsServer.sendToAll("reload");
@@ -97,9 +51,11 @@ auto main(int argc, char** argv) -> int {
 	}
 
 	FilesystemWatcher htmlWatcher;
-	result = htmlWatcher.watch(htmlState.path, []() {
-		std::cerr << "Changed html!\n";
-		std::cerr << "This does not do anything at the moment...\n";
+	result = htmlWatcher.watch(htmlState.path, [&]() {
+		reloadHtmlTemplate(markdownState);
+		reloadMarkdown(markdownState);
+		reloadHtmlOutput(markdownState);
+		wsServer.sendToAll("reload");
 	}, 200);
 
 	if(result.fail()) {

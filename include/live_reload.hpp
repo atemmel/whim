@@ -28,3 +28,4 @@ struct MarkdownLiveReloadState {
 
 auto reloadMarkdown(MarkdownLiveReloadState& markdownState) -> void;
 auto reloadHtmlOutput(MarkdownLiveReloadState& markdownState) -> void;
+auto reloadHtmlTemplate(MarkdownLiveReloadState& markdownState) -> void;

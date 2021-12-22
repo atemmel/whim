@@ -66,3 +66,10 @@ auto reloadHtmlOutput(MarkdownLiveReloadState& markdownState) -> void {
 	markdownState.htmlOutputMutex.unlock();
 }
 
+auto reloadHtmlTemplate(MarkdownLiveReloadState& markdownState) -> void {
+	auto htmlSrc = consumeFile(markdownState.htmlTemplate->path.c_str());
+	auto reloadedTemplate = html::compile(htmlSrc);
+	markdownState.htmlTemplate->htmlTemplateMutex.lock();
+	markdownState.htmlTemplate->htmlTemplate = std::move(reloadedTemplate);
+	markdownState.htmlTemplate->htmlTemplateMutex.unlock();
+}
