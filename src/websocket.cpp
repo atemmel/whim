@@ -22,14 +22,13 @@ auto ws::decode(TcpSocket client) -> Result<Frame> {
 
 	result.value.fin = (b0 & 0x1);
 	result.value.op = static_cast<Frame::Opcode>(b0 & 0x0F);
-	std::cerr << "Read message of type: " << (int)result.value.op << '\n';
-	if(result.value.op == 0x8) {
-		return result;
+
+	bool hasMask = b1 & 0x80;
+
+	uint64_t payloadLength = (b1 & 0x7F);
+	if(payloadLength == 0) {
+		return result.set("Found empty payload");
 	}
-
-	bool hasMask = b1 & 0x01;
-
-	uint64_t payloadLength = (b1 & 0xF7) >> 1;
 	if(payloadLength == 125) {
 		goto FULL_LENGTH_AQUIRED;
 	}
@@ -63,7 +62,6 @@ auto ws::decode(TcpSocket client) -> Result<Frame> {
 	}
 
 FULL_LENGTH_AQUIRED:
-	std::cerr << "Full length is " << payloadLength << '\n';
 
 	std::vector<Byte> mask;
 	if(hasMask) {
@@ -100,7 +98,6 @@ auto ws::encode(const Frame& frame) -> std::vector<Byte> {
 
 	Byte b0 = frame.op;
 	b0 |= 0x80;
-	//b0 &= 0xF1;
 	
 	auto payloadLength = frame.payload.size();
 	Byte b1 = (payloadLength);
@@ -141,14 +138,6 @@ auto ws::Server::sendToAll(std::string_view message) -> void {
 
 	auto bytes = encode(frame);
 
-	std::cerr << std::bitset<8>(1) << '\n';
-	for(auto b : bytes) {
-		std::cerr << std::bitset<8>(b) << ' ';
-		if(std::isalnum(b)) {
-			std::cerr << b << ' ';
-		}
-	}
-	std::cerr << '\n';
 	clientsMutex.lock();
 	for(auto client : clients) {
 		client.write(bytes);
@@ -205,17 +194,12 @@ auto ws::Server::handleClient(TcpSocket client) -> void {
 			break;
 		}
 
-		if(readFrame.value.op == 0x9) {
+		if(readFrame.value.op == 0x8) {
 			client.close();
 			clientsMutex.lock();
 			clients.erase(client);
 			clientsMutex.unlock();
 			break;
 		}
-
-		for(auto b : readFrame.value.payload) {
-			std::cerr << std::hex << (int)b << ' ';
-		}
-		std::cerr << '\n';
 	}
 }
