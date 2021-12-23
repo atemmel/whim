@@ -1,5 +1,7 @@
 #include "html.hpp"
+
 #include <algorithm>
+#include <iostream>
 
 auto html::Template::emit(const md::Document& document) -> std::string {
 	output.clear();
@@ -25,8 +27,39 @@ auto html::Template::visit(const md::Document& document) -> void {
 		prevIndex = point.last;
 	}
 
-	output += std::string_view(contents.begin() + prevIndex,
-			contents.end());
+	std::string_view endBodyStr = "</body>";
+	auto bodyEnd = std::find_end(contents.begin() + prevIndex, contents.end(),
+			endBodyStr.begin(), endBodyStr.end());
+
+	output += std::string_view(contents.begin() + prevIndex, bodyEnd);
+	output += R"(
+		 <script type="text/javascript">
+function connect() {
+	var ws = new WebSocket('ws://localhost:3501');
+
+	ws.onmessage = function(e) {
+		if(e.data === 'reload') {
+			location.reload();
+		}
+	};
+
+	ws.onclose = function(e) {
+		setTimeout(function() {
+		connect();
+		}, 1000);
+	};
+
+	ws.onerror = function(err) {
+		console.error('Socket encountered error: ', err.message, 'Closing socket');
+		ws.close();
+	};
+}
+connect();
+		</script>
+
+)";
+
+	output += std::string_view(bodyEnd, contents.end());
 }
 
 auto html::Template::visit(const md::Paragraph& paragraph) -> void {

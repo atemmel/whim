@@ -1,7 +1,7 @@
 #include "argparser.hpp"
 
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 
 ArgParser::ArgParser(int argc, char** argv) : args(argv + 1, argv + argc) {
 }
