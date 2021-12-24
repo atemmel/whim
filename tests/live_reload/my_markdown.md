@@ -1,8 +1,7 @@
 ---
-key = value
-title = cool title
-template = my_template
+title = Cool title
 ------
-epic content moment this Sdgajhsdgajdasd
+Content goes here
+Here is more content
 
-### title moment man
+Even more content

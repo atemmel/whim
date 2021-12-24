@@ -23,6 +23,7 @@ struct MarkdownLiveReloadState {
 	HtmlTemplateLiveReloadState* htmlTemplate;
 };
 
+auto doLiveReload(std::string_view markdownPath) -> int;
 
  [[nodiscard]] auto setupLiveReloadState(std::string_view markdownPath, HtmlTemplateLiveReloadState& htmlState, MarkdownLiveReloadState& markdownState) -> Result<void>;
 
