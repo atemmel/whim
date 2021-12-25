@@ -48,13 +48,6 @@ auto FilesystemWatcher::getTimestamp() const -> Result<long> {
 		return result.set(err);
 	}
 
-	if(!fs::is_regular_file(watched)) {
-		std::string err = "Could not listen to changes in: ";
-		err += watched;
-		err += ", as it is not a regular file";
-		return result.set(err);
-	}
-
 	auto time = fs::last_write_time(watched);
 	result.value = std::chrono::duration_cast<std::chrono::milliseconds>(
 		std::chrono::file_clock::to_sys(time).time_since_epoch()).count();

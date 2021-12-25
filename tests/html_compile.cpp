@@ -54,8 +54,9 @@ title = Cool title
 ------
 other cool text in here lmao
 )";
+
 	auto doc = md::parse(mdSrc);
-	auto emitted = html.emit(*doc);
+	auto emitted = html.emit(*doc, false);
 
 	SECTION("Validity") {
 		REQUIRE(emitted == R"(

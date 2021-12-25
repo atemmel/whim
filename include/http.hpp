@@ -30,8 +30,10 @@ struct Http {
 		using Handler = std::function<void(const Message& request, TcpSocket client)>;
 		auto listen() -> Result<void>;
 		auto endpoint(std::string_view path, Handler callback) -> void;
+		auto fallbackEndpoint(Handler callback) -> void;
 	private:
 		auto handleClient(TcpSocket client) -> void;
 		std::unordered_map<std::string, Handler> handlers;
+		Handler fallbackHandler;
 	};
 };

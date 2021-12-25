@@ -12,7 +12,9 @@ auto consumeFile(const char* path) -> std::string {
 	auto size = file.tellg();
 	file.seekg(0, std::ios::beg);
 
-	if(size < 1) return std::string();
+	if(size < 1) {
+		return std::string();
+	}
 
 	std::vector<char> bytes(size);
 	file.read(bytes.data(), size);

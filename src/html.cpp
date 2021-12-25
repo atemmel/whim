@@ -3,8 +3,9 @@
 #include <algorithm>
 #include <iostream>
 
-auto html::Template::emit(const md::Document& document) -> std::string {
+auto html::Template::emit(const md::Document& document, bool isLiveReload) -> std::string {
 	output.clear();
+	this->isLiveReload = isLiveReload;
 	visit(document);
 	return output;
 }
@@ -32,10 +33,16 @@ auto html::Template::visit(const md::Document& document) -> void {
 			endBodyStr.begin(), endBodyStr.end());
 
 	output += std::string_view(contents.begin() + prevIndex, bodyEnd);
-	output += R"(
+
+	if(isLiveReload) {
+		output += R"(
 		 <script type="text/javascript">
 function connect() {
 	var ws = new WebSocket('ws://localhost:3501');
+
+	ws.onopen = function(err) {
+		console.log("Connection to whim established");
+	};
 
 	ws.onmessage = function(e) {
 		if(e.data === 'reload') {
@@ -58,6 +65,7 @@ connect();
 		</script>
 
 )";
+	}
 
 	output += std::string_view(bodyEnd, contents.end());
 }

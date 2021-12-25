@@ -12,35 +12,11 @@
 
 auto doLiveReload(std::string_view markdownPath) -> int {
 
-	HtmlTemplateLiveReloadState htmlState;
-	MarkdownLiveReloadState markdownState;
-
-	auto setupResult = setupLiveReloadState(markdownPath, htmlState, markdownState);
-	if(setupResult.fail()) {
-		std::cerr << setupResult.reason() << '\n';
-		return EXIT_FAILURE;
-	}
-
 	ws::Server wsServer;
 	wsServer.listen(3501);
 
 	FilesystemWatcher mdWatcher;
-	auto result = mdWatcher.watch(markdownState.path, [&](){
-		reloadMarkdown(markdownState);
-		reloadHtmlOutput(markdownState);
-		wsServer.sendToAll("reload");
-	}, 200);
-
-	if(result.fail()) {
-		std::cerr << result.reason() << '\n';
-		return EXIT_FAILURE;
-	}
-
-	FilesystemWatcher htmlWatcher;
-	result = htmlWatcher.watch(htmlState.path, [&]() {
-		reloadHtmlTemplate(markdownState);
-		reloadMarkdown(markdownState);
-		reloadHtmlOutput(markdownState);
+	auto result = mdWatcher.watch(markdownPath, [&](){
 		wsServer.sendToAll("reload");
 	}, 200);
 
@@ -50,16 +26,50 @@ auto doLiveReload(std::string_view markdownPath) -> int {
 	}
 
 	Http::Server server;
+	std::string_view header = "HTTP/1.1 200 OK\r\n\r\n";
 
 	auto root = [&](const Http::Message& message, TcpSocket client) {
-		std::string_view header = "HTTP/1.1 200 OK\r\n\r\n";
 		client.write(header);
-		markdownState.htmlOutputMutex.lock();
-		client.write(markdownState.htmlOutput);
-		markdownState.htmlOutputMutex.unlock();
+		client.write("Welcome to root :)\n");
+	};
+
+	auto fallback = [&](const Http::Message& message, TcpSocket client) {
+		std::string fullPathNoStem;
+		fullPathNoStem += markdownPath;
+		fullPathNoStem += '/';
+		fullPathNoStem += message.path;
+
+		if(std::filesystem::exists(fullPathNoStem) && std::filesystem::is_regular_file(fullPathNoStem)) {
+			auto contents = consumeFile(fullPathNoStem.c_str());
+			client.write(header);
+			client.write(contents);
+			client.write("\n\n");
+			return;
+		}
+
+		auto mdRequest = fullPathNoStem + ".md";
+		if(std::filesystem::exists(mdRequest) && std::filesystem::is_regular_file(mdRequest)) {
+			CreatingHtmlFromMarkdownState state;
+			state.basePath = markdownPath;
+			state.markdownPath = mdRequest;
+			auto response = createHtmlFromMarkdown(state);
+			if(response.fail()) {
+				std::cerr << response.reason();
+				//TODO: write to client?
+				return;
+			}
+
+			client.write(header);
+			client.write(response.value);
+		} else {
+			std::cerr << "404 moment\n";
+			std::cerr << message.path << '\n';
+			return;
+		}
 	};
 
 	server.endpoint("/", root);
+	server.fallbackEndpoint(fallback);
 
 	auto res = server.listen();
 	if(res.fail()) {
@@ -69,72 +79,34 @@ auto doLiveReload(std::string_view markdownPath) -> int {
 	return EXIT_SUCCESS;
 }
 
- [[nodiscard]] auto setupLiveReloadState(std::string_view markdownPath, HtmlTemplateLiveReloadState& htmlState, MarkdownLiveReloadState& markdownState) -> Result<void> {
-	Result<void> result;
-	markdownState.path = markdownPath;
-	markdownState.htmlTemplate = &htmlState;
-	markdownState.markdownSource = consumeFile(markdownPath.data());
-	if(markdownState.markdownSource.empty()) {
+auto createHtmlFromMarkdown(CreatingHtmlFromMarkdownState& state) -> Result<std::string> {
+	Result<std::string> result;
+	auto markdownSource = consumeFile(state.markdownPath.data());
+	if(markdownSource.empty()) {
 		std::string err = "Could not read file: ";
-		err += markdownPath;
+		err += state.markdownPath;
 		return result.set(err);
 	}
-	markdownState.document = md::parse(markdownState.markdownSource);
-	if(!markdownState.document) {
+
+	state.document = md::parse(markdownSource);
+	if(!state.document) {
 		return result.set("Could not build markdown document");
 	}
 
-	auto templateFile = markdownState.document->meta.find("template");
-	if(templateFile == markdownState.document->meta.end()) {
+	auto templateFile = state.document->meta.find("template");
+	if(templateFile == state.document->meta.end()) {
 		return result.set("No template path specified in markdown file header");
 	}
 
-	auto markdownDir = getPath(markdownPath);
-	htmlState.path = markdownDir;
-	htmlState.path += std::filesystem::path::preferred_separator;
-	htmlState.path += templateFile->second;
-
-	if(!endsWith(htmlState.path, ".html")) {
-		htmlState.path += ".html";
+	std::string templatePath = state.basePath.data();
+	templatePath += '/';
+	templatePath += templateFile->second;
+	if(!templatePath.ends_with(".html")) {
+		templatePath += ".html";
 	}
 
-	auto htmlSource = consumeFile(htmlState.path.c_str());
-	if(htmlSource.empty()) {
-		std::string err = "Could not read file at: ";
-		err += templateFile->second;
-		return result.set(err);
-	}
-
-	htmlState.htmlTemplate = html::compile(htmlSource);
-	markdownState.htmlOutput = htmlState.htmlTemplate.emit(*markdownState.document);
-
+	auto htmlTemplateSrc = consumeFile(templatePath.c_str());
+	state.htmlTemplate = html::compile(htmlTemplateSrc);
+	result.value = state.htmlTemplate.emit(*state.document, true);
 	return result;
-}
-
-auto reloadMarkdown(MarkdownLiveReloadState& markdownState) -> void {
-	auto newMarkdownSource = consumeFile(markdownState.path.c_str());
-	auto newDocument = md::parse(newMarkdownSource);
-	markdownState.documentMutex.lock();
-	markdownState.document.swap(newDocument);
-	markdownState.documentMutex.unlock();
-}
-
-auto reloadHtmlOutput(MarkdownLiveReloadState& markdownState) -> void {
-	markdownState.documentMutex.lock();
-	markdownState.htmlTemplate->htmlTemplateMutex.lock();
-	auto newHtmlOutput = markdownState.htmlTemplate->htmlTemplate.emit(*markdownState.document);
-	markdownState.htmlTemplate->htmlTemplateMutex.unlock();
-	markdownState.documentMutex.unlock();
-
-	markdownState.htmlOutputMutex.lock();
-	markdownState.htmlOutput.swap(newHtmlOutput);
-	markdownState.htmlOutputMutex.unlock();
-}
-
-auto reloadHtmlTemplate(MarkdownLiveReloadState& markdownState) -> void {
-	auto htmlSrc = consumeFile(markdownState.htmlTemplate->path.c_str());
-	auto reloadedTemplate = html::compile(htmlSrc);
-	markdownState.htmlTemplate->htmlTemplateMutex.lock();
-	markdownState.htmlTemplate->htmlTemplate = std::move(reloadedTemplate);
-	markdownState.htmlTemplate->htmlTemplateMutex.unlock();
 }

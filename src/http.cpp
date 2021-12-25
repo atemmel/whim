@@ -1,4 +1,5 @@
 #include "http.hpp"
+
 #include <iostream>
 
 auto Http::Message::setMethod(std::string_view view) -> void {
@@ -83,6 +84,10 @@ auto Http::Server::endpoint(std::string_view path, Handler callback) -> void {
 	handlers.emplace(path, callback);
 }
 
+auto Http::Server::fallbackEndpoint(Handler callback) -> void {
+	fallbackHandler = callback;
+}
+
 auto Http::Server::handleClient(TcpSocket client) -> void {
 	auto result = parseMessage(client);
 	if(result.fail()) {
@@ -98,8 +103,7 @@ auto Http::Server::handleClient(TcpSocket client) -> void {
 	if(handler != handlers.end()) {
 		handler->second(message, client);
 	} else {
-		client.write("HTTP/1.1 404 NOT FOUND");
+		fallbackHandler(message, client);
 	}
 	client.close();
 };
-

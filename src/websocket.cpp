@@ -26,9 +26,6 @@ auto ws::decode(TcpSocket client) -> Result<Frame> {
 	bool hasMask = b1 & 0x80;
 
 	uint64_t payloadLength = (b1 & 0x7F);
-	if(payloadLength == 0) {
-		return result.set("Found empty payload");
-	}
 	if(payloadLength == 125) {
 		goto FULL_LENGTH_AQUIRED;
 	}
@@ -194,12 +191,24 @@ auto ws::Server::handleClient(TcpSocket client) -> void {
 			break;
 		}
 
-		if(readFrame.value.op == 0x8) {
-			client.close();
-			clientsMutex.lock();
-			clients.erase(client);
-			clientsMutex.unlock();
-			break;
+		switch(readFrame.value.op) {
+			case 0x8:
+				client.close();
+				clientsMutex.lock();
+				clients.erase(client);
+				clientsMutex.unlock();
+				return;
+			default:
+				auto view = std::string_view(reinterpret_cast<const char*>(readFrame.value.payload.data()),
+						readFrame.value.payload.size());
+				std::cerr << "Unhandled op: " << (int)readFrame.value.op << '\n';
+				std::cerr << "Payload (length: " << readFrame.value.payload.size()
+					<< "): " << view << '\n';
+				client.close();
+				clientsMutex.lock();
+				clients.erase(client);
+				clientsMutex.unlock();
+				return;
 		}
 	}
 }
