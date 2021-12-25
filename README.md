@@ -10,6 +10,6 @@
 
 - [x] Live reload
 - [x] Multithreaded live reload
-- [ ] Proper CSS support
+- [x] Proper CSS support
 - [ ] Compilation
 - [ ] Full markdown support
