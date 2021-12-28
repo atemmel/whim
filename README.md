@@ -11,5 +11,5 @@
 - [x] Live reload
 - [x] Multithreaded live reload
 - [x] Proper CSS support
-- [ ] Compilation
+- [x] Compilation
 - [ ] Full markdown support
