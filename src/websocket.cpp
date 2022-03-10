@@ -98,7 +98,7 @@ auto ws::encode(const Frame& frame) -> std::vector<Byte> {
 	
 	auto payloadLength = frame.payload.size();
 	Byte b1 = (payloadLength);
-	b1 &= 0xFE;
+	b1 &= 0x7F;
 
 	bytes.push_back(b0);
 	bytes.push_back(b1);
