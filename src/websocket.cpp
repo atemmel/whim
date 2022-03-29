@@ -4,7 +4,6 @@
 #include "http.hpp"
 #include "sha1.hpp"
 
-#include <bitset>
 #include <iostream>
 
 auto ws::decode(TcpSocket client) -> Result<Frame> {
@@ -192,12 +191,17 @@ auto ws::Server::handleClient(TcpSocket client) -> void {
 		}
 
 		switch(readFrame.value.op) {
-			case 0x8:
+			case ws::Frame::Opcode::Close:
 				client.close();
 				clientsMutex.lock();
 				clients.erase(client);
 				clientsMutex.unlock();
 				return;
+			case ws::Frame::Opcode::Ping:
+				if(sendPong(client).fail()) {
+					return;
+				}
+				break;
 			default:
 				auto view = std::string_view(reinterpret_cast<const char*>(readFrame.value.payload.data()),
 						readFrame.value.payload.size());
@@ -211,4 +215,13 @@ auto ws::Server::handleClient(TcpSocket client) -> void {
 				return;
 		}
 	}
+}
+
+auto ws::Server::sendPong(TcpSocket client) -> Result<size_t> {
+	auto bytes = ws::encode(Frame{
+		.payload = {},
+		.op = ws::Frame::Pong,
+		.fin = true,
+	});
+	return client.write(bytes);
 }

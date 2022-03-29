@@ -16,6 +16,7 @@ struct ws {
 			Continuation = 0x0,
 			Text = 0x1,
 			Binary = 0x2,
+			Close = 0x8,
 			Ping = 0x9,
 			Pong = 0xA,
 		};
@@ -35,6 +36,7 @@ struct ws {
 	private:
 		auto listenThread() -> void;
 		auto handleClient(TcpSocket client) -> void;
+		auto sendPong(TcpSocket client) -> Result<size_t>;
 		TcpSocket socket;
 
 		std::set<TcpSocket> clients;

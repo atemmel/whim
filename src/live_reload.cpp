@@ -62,8 +62,10 @@ auto doLiveReload(std::string_view markdownPath) -> int {
 			client.write(header);
 			client.write(response.value);
 		} else {
+#ifdef DEBUG
 			std::cerr << "404 moment\n";
 			std::cerr << message.path << '\n';
+#endif
 			return;
 		}
 	};
