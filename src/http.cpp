@@ -1,6 +1,7 @@
 #include "http.hpp"
 
 #include <iostream>
+#include <thread>
 
 auto Http::Message::setMethod(std::string_view view) -> void {
 	if(view == "POST") {
@@ -76,7 +77,11 @@ auto Http::Server::listen() -> Result<void> {
 		if(client.fail()) {
 			std::cerr << client.reason() << '\n';
 		} else {
-			handleClient(client.value);
+#ifdef DEBUG
+			std::cerr << "New client!\n";
+#endif
+			std::thread thread(&Http::Server::handleClient, this, client.value);
+			thread.detach();
 		}
 	}
 }
@@ -105,5 +110,6 @@ auto Http::Server::handleClient(TcpSocket client) -> void {
 	} else {
 		fallbackHandler(message, client);
 	}
+	client.write("\r\n\r\n");
 	client.close();
 };

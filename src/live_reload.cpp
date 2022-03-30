@@ -26,11 +26,16 @@ auto doLiveReload(std::string_view markdownPath) -> int {
 	}
 
 	Http::Server server;
-	std::string_view header = "HTTP/1.1 200 OK\r\n\r\n";
 
 	auto root = [&](const Http::Message& message, TcpSocket client) {
+		constexpr std::string_view payload = "Welcome to root :)\n";
+		const std::string header = 
+		"HTTP/1.1 200 OK\r\n"
+		"Content-Type: text/html\r\n"
+		"Content-Length: " + std::to_string(payload.size()) 
+		+ "\r\n\r\n";
 		client.write(header);
-		client.write("Welcome to root :)\n");
+		client.write(payload);
 	};
 
 	auto fallback = [&](const Http::Message& message, TcpSocket client) {
@@ -39,16 +44,15 @@ auto doLiveReload(std::string_view markdownPath) -> int {
 		fullPathNoStem += '/';
 		fullPathNoStem += message.path;
 
-		if(std::filesystem::exists(fullPathNoStem) && std::filesystem::is_regular_file(fullPathNoStem)) {
-			auto contents = consumeFile(fullPathNoStem.c_str());
-			client.write(header);
-			client.write(contents);
-			client.write("\n\n");
-			return;
-		}
+		std::string header, payload;
 
-		auto mdRequest = fullPathNoStem + ".md";
-		if(std::filesystem::exists(mdRequest) && std::filesystem::is_regular_file(mdRequest)) {
+		if(std::filesystem::exists(fullPathNoStem) && std::filesystem::is_regular_file(fullPathNoStem)) {
+			payload = consumeFile(fullPathNoStem.c_str());
+#ifdef DEBUG
+			std::cerr << "Sent plain file\n";
+#endif
+		} else if(auto mdRequest = fullPathNoStem + ".md";
+			std::filesystem::exists(mdRequest) && std::filesystem::is_regular_file(mdRequest)) {
 			CreatingHtmlFromMarkdownState state;
 			state.basePath = markdownPath;
 			state.markdownPath = mdRequest;
@@ -56,18 +60,27 @@ auto doLiveReload(std::string_view markdownPath) -> int {
 			if(response.fail()) {
 				std::cerr << response.reason();
 				//TODO: write to client?
-				return;
 			}
 
-			client.write(header);
-			client.write(response.value);
-		} else {
+			payload = std::move(response.value);
 #ifdef DEBUG
-			std::cerr << "404 moment\n";
-			std::cerr << message.path << '\n';
+			std::cerr << "Sent md answer\n";
+#endif
+		} else {
+			client.write("HTTP/1.1 404 NOT FOUND\r\n\r\n");
+#ifdef DEBUG
+			std::cerr << "404 moment when asked for: " << message.path << '\n';
 #endif
 			return;
 		}
+
+		header = 
+		"HTTP/1.1 200 OK\r\n"
+		"Content-Length: " + std::to_string(payload.size()) 
+		+ "\r\n\r\n";
+
+		client.write(header);
+		client.write(payload);
 	};
 
 	server.endpoint("/", root);
