@@ -13,3 +13,13 @@ Cras id placerat metus. Integer dictum nulla a tortor varius, nec malesuada mi v
 Duis fringilla turpis in ornare ullamcorper. Phasellus aliquet arcu id imperdiet dignissim. Sed leo lorem, rhoncus ut mollis in, finibus non nisl. Duis finibus dolor et elit faucibus, ut congue sem placerat. Etiam dignissim nisl id elit eleifend efficitur. Vestibulum sit amet lorem lacus. In accumsan, nibh nec bibendum pulvinar, massa libero elementum sapien, in pretium urna magna sit amet diam. Nulla auctor faucibus metus, ac commodo sapien posuere nec. Proin a lectus id lorem pharetra fringilla et ullamcorper ante. Integer rutrum lacus et lorem luctus facilisis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Maecenas id semper justo. Fusce consequat odio eget libero cursus, a vehicula leo venenatis.
 
 Nunc porttitor massa sapien, ac aliquet sapien ullamcorper ut. Phasellus sodales tellus fermentum orci faucibus pretium. Sed tempor nibh nec ante aliquet imperdiet. Aenean molestie nec massa id consectetur. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Nunc non augue quis ipsum porta sollicitudin quis nec ipsum. Suspendisse leo turpis, laoreet vitae viverra ac, vestibulum in enim. Fusce eget massa justo. Vestibulum eu dui nec felis rutrum laoreet et non erat. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Vivamus nec lacus a lorem consequat faucibus vel in risus. Pellentesque tristique nibh vitae libero aliquam sagittis. Vestibulum non ullamcorper turpis. Suspendisse tristique auctor dapibus.
+
+```c
+while(true) {
+	if(condition) {
+
+	} else {
+
+	}
+}
+```

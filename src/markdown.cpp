@@ -21,6 +21,10 @@ auto md::Header::accept(Visitor& visitor) const -> void {
 	visitor.visit(*this);
 }
 
+auto md::Code::accept(Visitor& visitor) const -> void {
+	visitor.visit(*this);
+}
+
 auto md::Printer::visit(const Document& document) -> void {
 	std::cerr << "document:\n";
 	depth++;
@@ -38,6 +42,11 @@ auto md::Printer::visit(const Paragraph& paragraph) -> void {
 auto md::Printer::visit(const Header& header) -> void {
 	std::cerr << "Header: '" << header.contents 
 		<< "', Level: " << header.level << '\n';
+}
+
+auto md::Printer::visit(const Code& code) -> void {
+	std::cerr << "Code: '" << code.contents
+		<< "', Language: " << code.language << '\n';
 }
 
 auto md::Printer::pad() const -> void {
@@ -61,6 +70,8 @@ auto md::parse(const std::string_view str) -> std::unique_ptr<Document> {
 	while(!eof()) {
 		if(auto header = parseHeader(); header) {
 			result->addChild(header);
+		} else if(auto code = parseCode(); code) {
+			result->addChild(code);
 		} else if(auto paragraph = parseParagraph(); paragraph) {
 			result->addChild(paragraph);
 		} else {
@@ -251,6 +262,61 @@ auto md::parseHeader() -> Child {
 	return header;
 }
 
+auto md::parseCode() -> Child {
+	auto checkpoint = state;
+	for(int i = 0; i < 3; i++) {
+		if(eof() || peek() != '`') {
+			state = checkpoint;
+			return nullptr;
+		}
+		next();
+	}
+
+	auto code = std::make_unique<md::Code>();
+
+	if(peek() != '\n') {
+		auto begin = view.begin() + state.index;
+		while(!eof() && peek() != '\n') {
+			next();
+		}
+		if(eof()) {
+			state = checkpoint;
+			return nullptr;
+		}
+		auto end = view.begin() + state.index;
+		next();
+
+		code->language = std::string(begin, end);
+	} else {
+		code->language = "?";
+	}
+
+	auto begin = view.begin() + state.index;
+
+	while(!eof() && peek() != '`') {
+		next();
+	}
+
+	auto end = view.begin() + state.index;
+
+	if(eof()) {
+		state = checkpoint;
+		return nullptr;
+	}
+
+	for(int i = 0; i < 3; i++) {
+		if(eof() || peek() != '`') {
+			state = checkpoint;
+			return nullptr;
+		}
+		next();
+	}
+
+	code->contents = std::string(begin, end);
+
+	return code;
+}
+
 auto md::peek() -> char {
 	return view[state.index];
 }
@@ -278,6 +344,7 @@ auto md::isSpecialChar(char prospect) -> bool {
 	switch(prospect) {
 		case '#':
 		case '*':
+		case '`':
 			return true;
 	}
 	return false;

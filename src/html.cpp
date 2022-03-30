@@ -122,6 +122,12 @@ auto html::Template::visit(const md::Header& header) -> void {
 	}
 }
 
+auto html::Template::visit(const md::Code& code) -> void {
+	output += "<pre><code>";
+	output += code.contents;
+	output += "</pre></code>";
+}
+
 auto html::compile(std::string_view view) -> html::Template {
 	Template html;
 	html.contents = view;

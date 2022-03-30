@@ -21,6 +21,7 @@ struct html {
 		auto visit(const md::Document& document) -> void;
 		auto visit(const md::Paragraph& paragraph) -> void;
 		auto visit(const md::Header& header) -> void;
+		auto visit(const md::Code& code) -> void;
 	private:
 		std::string output;
 		bool isLiveReload;

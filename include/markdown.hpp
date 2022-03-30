@@ -33,17 +33,25 @@ struct md {
 		int level;
 	};
 
+	struct Code : public Node {
+		auto accept(Visitor& visitor) const -> void;
+		std::string contents;
+		std::string language;
+	};
+
 	struct Visitor {
 		virtual ~Visitor() = default;
 		virtual auto visit(const Document& document) -> void = 0;
 		virtual auto visit(const Paragraph& paragraph) -> void = 0;
 		virtual auto visit(const Header& header) -> void = 0;
+		virtual auto visit(const Code& code) -> void = 0;
 	};
 
 	struct Printer : Visitor {
 		auto visit(const Document& document) -> void;
 		auto visit(const Paragraph& paragraph) -> void;
 		auto visit(const Header& header) -> void;
+		auto visit(const Code& code) -> void;
 	private:
 		auto pad() const -> void;
 		uint32_t depth = 0;
@@ -56,6 +64,7 @@ private:
 	[[nodiscard]] static auto parseMetadata() -> std::unordered_map<std::string, std::string>;
 	[[nodiscard]] static auto parseParagraph() -> Child;
 	[[nodiscard]] static auto parseHeader() -> Child;
+	[[nodiscard]] static auto parseCode() -> Child;
 
 	[[nodiscard]] static auto peek() -> char;
 	static auto next() -> void;

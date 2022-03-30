@@ -9,10 +9,13 @@
 auto ws::decode(TcpSocket client) -> Result<Frame> {
 	Result<Frame> result;
 	
+	std::cerr << "Checking if client sent something...\n";
 	auto readHeader = client.readBytes(2);
 	if(readHeader.fail()) {
 		return result.set(readHeader.reason());
 	}
+
+	std::cerr << "Client sent something...\n";
 
 	auto header = std::move(readHeader.value);
 
@@ -153,7 +156,9 @@ auto ws::Server::listenThread() -> void {
 }
 
 auto ws::Server::handleClient(TcpSocket client) -> void {
+	std::cerr << "Handling new client...\n";
 	auto result = Http::parseMessage(client);
+	std::cerr << "Attempting to add client to pool...\n";
 	if(result.fail()) {
 		std::cerr << result.reason() << '\n';
 		return;
@@ -180,6 +185,8 @@ auto ws::Server::handleClient(TcpSocket client) -> void {
 	clients.insert(client);
 	clientsMutex.unlock();
 
+	std::cerr << "Client succesfully added!\n";
+
 	while(true) {
 		auto readFrame = decode(client);
 		if(readFrame.fail()) {
@@ -190,8 +197,11 @@ auto ws::Server::handleClient(TcpSocket client) -> void {
 			break;
 		}
 
+		std::cerr << "Client sent message: " << (int)readFrame.value.op << '\n';
+
 		switch(readFrame.value.op) {
 			case ws::Frame::Opcode::Close:
+				std::cerr << "Cleanly dropping client...\n";
 				client.close();
 				clientsMutex.lock();
 				clients.erase(client);
